@@ -1,0 +1,65 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    "./app/**/*.{js,jsx,ts,tsx}",
+    "./components/**/*.{js,jsx,ts,tsx}",
+  ],
+  presets: [require("nativewind/preset")],
+  theme: {
+    extend: {
+      colors: {
+        clay: {
+          DEFAULT: "#C4845A",
+          50: "#F9F0E8",
+          100: "#F2DEC9",
+          200: "#E5BF9B",
+          300: "#D9A06D",
+          400: "#C4845A",
+          500: "#A96B44",
+          600: "#8D5535",
+          700: "#6E4028",
+          800: "#4F2D1B",
+          900: "#301A0E",
+        },
+        sand: {
+          DEFAULT: "#E8D5B7",
+          50: "#FDFAF7",
+          100: "#F7F0E4",
+          200: "#EFE1CC",
+          300: "#E8D5B7",
+          400: "#D9C09A",
+          500: "#C9A87D",
+          600: "#B08B5E",
+        },
+        earth: {
+          DEFAULT: "#7C5C3E",
+          50: "#F2EBE3",
+          100: "#E3D3C1",
+          200: "#C9AD90",
+          300: "#A8825F",
+          400: "#7C5C3E",
+          500: "#5E4530",
+          600: "#402F20",
+        },
+        smoke: {
+          DEFAULT: "#9E9E9E",
+          50: "#FAFAFA",
+          100: "#F5F5F5",
+          200: "#EEEEEE",
+          300: "#E0E0E0",
+          400: "#BDBDBD",
+          500: "#9E9E9E",
+          600: "#757575",
+          700: "#616161",
+          800: "#424242",
+          900: "#212121",
+        },
+      },
+      fontFamily: {
+        heading: ["Georgia", "serif"],
+        body: ["System", "sans-serif"],
+      },
+    },
+  },
+  plugins: [],
+};
