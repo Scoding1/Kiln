@@ -10,8 +10,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/colors";
 
 // ─── Step data ────────────────────────────────────────────────────────────────
@@ -616,7 +616,19 @@ export default function OnboardingScreen() {
   const isFinal = step === 4;
 
   async function handleOpenKiln() {
-    await AsyncStorage.setItem("kiln_onboarded", "1");
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const profiles = supabase.from("profiles") as any;
+      await profiles
+        .update({
+          name: name.trim() || (session.user.user_metadata?.name as string) || "",
+          experience_level: experience || null,
+          goals: [...workTypes, ...goal], // step 3 + step 4 selections
+        })
+        .eq("id", session.user.id);
+    }
+
     router.replace("/(tabs)");
   }
 

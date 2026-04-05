@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { signInWithEmail, signInWithGoogle, signInWithApple } from "@/lib/auth";
+import { signUpWithEmail } from "@/lib/auth";
 import { Colors } from "@/constants/colors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -23,108 +23,41 @@ function errorMessage(err: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function Divider() {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 20 }}>
-      <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-      <Text style={{ fontSize: 12, color: Colors.textTertiary, paddingHorizontal: 14, fontWeight: "500" }}>
-        or
-      </Text>
-      <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
-    </View>
-  );
-}
-
-interface SocialButtonProps {
-  label: string;
-  iconName: React.ComponentProps<typeof Ionicons>["name"];
-  onPress: () => void;
-  loading?: boolean;
-}
-
-function SocialButton({ label, iconName, onPress, loading }: SocialButtonProps) {
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.8}
-      disabled={loading}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 10,
-        paddingVertical: 15,
-        borderRadius: 16,
-        borderWidth: 1.5,
-        borderColor: Colors.border,
-        backgroundColor: Colors.surface,
-        marginBottom: 12,
-      }}
-    >
-      {loading ? (
-        <ActivityIndicator size="small" color={Colors.primary} />
-      ) : (
-        <>
-          <Ionicons name={iconName} size={20} color={Colors.textPrimary} />
-          <Text style={{ fontSize: 15, fontWeight: "500", color: Colors.textPrimary }}>
-            {label}
-          </Text>
-        </>
-      )}
-    </TouchableOpacity>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-export default function LoginScreen() {
+export default function SignupScreen() {
   const router = useRouter();
 
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
 
-  async function handleSignIn() {
-    if (!email.trim() || !password) {
-      Alert.alert("Missing fields", "Please enter your email and password.");
+  async function handleSignUp() {
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      Alert.alert("Missing fields", "Please fill in all fields.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert("Passwords don't match", "Please make sure both passwords are the same.");
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert("Password too short", "Password must be at least 6 characters.");
       return;
     }
 
     setLoading(true);
     try {
-      await signInWithEmail(email.trim(), password);
-      // _layout.tsx will pick up the session change and redirect to /(tabs)
+      await signUpWithEmail(email.trim(), password, name.trim());
+      router.replace("/(auth)/onboarding");
     } catch (err) {
-      Alert.alert("Sign in failed", errorMessage(err));
+      Alert.alert("Sign up failed", errorMessage(err));
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    setGoogleLoading(true);
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      Alert.alert("Google sign in failed", errorMessage(err));
-    } finally {
-      setGoogleLoading(false);
-    }
-  }
-
-  async function handleAppleSignIn() {
-    setAppleLoading(true);
-    try {
-      await signInWithApple();
-    } catch (err) {
-      Alert.alert("Apple sign in failed", errorMessage(err));
-    } finally {
-      setAppleLoading(false);
     }
   }
 
@@ -172,7 +105,7 @@ export default function LoginScreen() {
               marginBottom: 6,
             }}
           >
-            Welcome back
+            Create account
           </Text>
           <Text
             style={{
@@ -182,8 +115,43 @@ export default function LoginScreen() {
               marginBottom: 36,
             }}
           >
-            Sign in to continue to your studio.
+            Join Kiln and start tracking your pottery journey.
           </Text>
+
+          {/* ── Name field ── */}
+          <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.textSecondary, marginBottom: 8 }}>
+            Name
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 1.5,
+              borderColor: Colors.border,
+              borderRadius: 14,
+              backgroundColor: Colors.surface,
+              paddingHorizontal: 14,
+              marginBottom: 16,
+              height: 52,
+            }}
+          >
+            <Ionicons name="person-outline" size={18} color={Colors.textTertiary} style={{ marginRight: 10 }} />
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Your first name"
+              placeholderTextColor={Colors.textTertiary}
+              autoCapitalize="words"
+              autoCorrect={false}
+              autoComplete="name"
+              style={{
+                flex: 1,
+                fontSize: 15,
+                color: Colors.textPrimary,
+                height: "100%",
+              }}
+            />
+          </View>
 
           {/* ── Email field ── */}
           <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.textSecondary, marginBottom: 8 }}>
@@ -234,7 +202,7 @@ export default function LoginScreen() {
               borderRadius: 14,
               backgroundColor: Colors.surface,
               paddingHorizontal: 14,
-              marginBottom: 10,
+              marginBottom: 16,
               height: 52,
             }}
           >
@@ -242,10 +210,10 @@ export default function LoginScreen() {
             <TextInput
               value={password}
               onChangeText={setPassword}
-              placeholder="••••••••"
+              placeholder="Min. 6 characters"
               placeholderTextColor={Colors.textTertiary}
               secureTextEntry={!showPassword}
-              autoComplete="current-password"
+              autoComplete="new-password"
               style={{
                 flex: 1,
                 fontSize: 15,
@@ -262,19 +230,50 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── Forgot password ── */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={{ alignSelf: "flex-end", marginBottom: 28 }}
+          {/* ── Confirm password field ── */}
+          <Text style={{ fontSize: 13, fontWeight: "600", color: Colors.textSecondary, marginBottom: 8 }}>
+            Confirm password
+          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              borderWidth: 1.5,
+              borderColor: Colors.border,
+              borderRadius: 14,
+              backgroundColor: Colors.surface,
+              paddingHorizontal: 14,
+              marginBottom: 32,
+              height: 52,
+            }}
           >
-            <Text style={{ fontSize: 13, color: Colors.primary, fontWeight: "500" }}>
-              Forgot password?
-            </Text>
-          </TouchableOpacity>
+            <Ionicons name="lock-closed-outline" size={18} color={Colors.textTertiary} style={{ marginRight: 10 }} />
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="••••••••"
+              placeholderTextColor={Colors.textTertiary}
+              secureTextEntry={!showConfirm}
+              autoComplete="new-password"
+              style={{
+                flex: 1,
+                fontSize: 15,
+                color: Colors.textPrimary,
+                height: "100%",
+              }}
+            />
+            <TouchableOpacity onPress={() => setShowConfirm((v) => !v)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+              <Ionicons
+                name={showConfirm ? "eye-off-outline" : "eye-outline"}
+                size={18}
+                color={Colors.textTertiary}
+              />
+            </TouchableOpacity>
+          </View>
 
-          {/* ── Sign in button ── */}
+          {/* ── Sign up button ── */}
           <TouchableOpacity
-            onPress={handleSignIn}
+            onPress={handleSignUp}
             activeOpacity={0.88}
             disabled={loading}
             style={{
@@ -283,7 +282,7 @@ export default function LoginScreen() {
               paddingVertical: 17,
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 8,
+              marginBottom: 20,
               shadowColor: Colors.primary,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.28,
@@ -303,43 +302,22 @@ export default function LoginScreen() {
                   letterSpacing: 0.3,
                 }}
               >
-                Sign in
+                Create account
               </Text>
             )}
           </TouchableOpacity>
 
-          {/* ── Divider ── */}
-          <Divider />
-
-          {/* ── Google ── */}
-          <SocialButton
-            label="Continue with Google"
-            iconName="logo-google"
-            onPress={handleGoogleSignIn}
-            loading={googleLoading}
-          />
-
-          {/* ── Apple (iOS / macOS only) ── */}
-          {Platform.OS === "ios" && (
-            <SocialButton
-              label="Continue with Apple"
-              iconName="logo-apple"
-              onPress={handleAppleSignIn}
-              loading={appleLoading}
-            />
-          )}
-
-          {/* ── Create account ── */}
-          <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 12, gap: 4 }}>
+          {/* ── Sign in link ── */}
+          <View style={{ flexDirection: "row", justifyContent: "center", gap: 4 }}>
             <Text style={{ fontSize: 14, color: Colors.textSecondary }}>
-              Don't have an account?
+              Already have an account?
             </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => router.push("/(auth)/signup")}
+              onPress={() => router.push("/(auth)/login")}
             >
               <Text style={{ fontSize: 14, color: Colors.primary, fontWeight: "600" }}>
-                Create one
+                Sign in
               </Text>
             </TouchableOpacity>
           </View>

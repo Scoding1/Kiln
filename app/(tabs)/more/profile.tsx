@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Link } from "expo-router";
+import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/colors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -908,15 +909,9 @@ export default function ProfileScreen() {
     );
   }
 
-  function handleLogOut() {
-    Alert.alert(
-      "Log out",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Log out", style: "destructive", onPress: () => {} },
-      ]
-    );
+  async function handleLogOut() {
+    await supabase.auth.signOut();
+    router.replace("/(auth)/welcome");
   }
 
   return (
