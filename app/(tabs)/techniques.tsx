@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import type { Technique } from "@/lib/types";
 import { TechniqueDetailSheet } from "@/components/sheets/TechniqueDetailSheet";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/store";
 
 // ─── Technique data ───────────────────────────────────────────────────────────
 
@@ -605,6 +607,7 @@ function EmptySearch({ query }: { query: string }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TechniquesScreen() {
+  const session = useAuthStore((s) => s.session);
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("All");
@@ -614,6 +617,24 @@ export default function TechniquesScreen() {
   const [completedSteps, setCompletedSteps] = useState<
     Record<string, Set<string>>
   >({});
+
+  // ── Load completed steps from Supabase ────────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("completed_technique_steps") as any)
+      .select("technique_id, step_id")
+      .eq("user_id", session.user.id)
+      .then(({ data }: { data: { technique_id: string; step_id: string }[] | null }) => {
+        if (!data) return;
+        const rebuilt: Record<string, Set<string>> = {};
+        for (const row of data) {
+          if (!rebuilt[row.technique_id]) rebuilt[row.technique_id] = new Set();
+          rebuilt[row.technique_id].add(row.step_id);
+        }
+        setCompletedSteps(rebuilt);
+      });
+  }, [session?.user.id]);
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -645,10 +666,12 @@ export default function TechniquesScreen() {
   }, [search, activeFilter]);
 
   // ── Step toggle ────────────────────────────────────────────────────────────
-  function handleToggleStep(techniqueId: string, stepId: string) {
+  async function handleToggleStep(techniqueId: string, stepId: string) {
+    const isCompleted = completedSteps[techniqueId]?.has(stepId) ?? false;
+
     setCompletedSteps((prev) => {
       const current = new Set(prev[techniqueId] ?? []);
-      if (current.has(stepId)) {
+      if (isCompleted) {
         current.delete(stepId);
       } else {
         current.add(stepId);
@@ -656,9 +679,19 @@ export default function TechniquesScreen() {
       return { ...prev, [techniqueId]: current };
     });
 
-    // Keep detail sheet in sync
-    if (detailTechnique?.id === techniqueId) {
-      setDetailTechnique((prev) => prev); // re-render trigger via completedSteps
+    if (session) {
+      if (isCompleted) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("completed_technique_steps") as any)
+          .delete()
+          .eq("user_id", session.user.id)
+          .eq("technique_id", techniqueId)
+          .eq("step_id", stepId);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("completed_technique_steps") as any)
+          .insert({ user_id: session.user.id, technique_id: techniqueId, step_id: stepId });
+      }
     }
   }
 
