@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import type { Glaze, FoodSafe } from "@/lib/types";
 import { GlazeDetailSheet } from "@/components/sheets/GlazeDetailSheet";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/store";
 
 // ─── Free tier ────────────────────────────────────────────────────────────────
 
@@ -548,12 +550,25 @@ function EmptySaved() {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function GlazesScreen() {
+  const session = useAuthStore((s) => s.session);
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("All");
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [detailGlaze, setDetailGlaze] = useState<Glaze | null>(null);
   const [showUpgrade, setShowUpgrade] = useState(false);
+
+  // ── Load saved glazes from Supabase ───────────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("saved_glazes") as any)
+      .select("glaze_id")
+      .eq("user_id", session.user.id)
+      .then(({ data }: { data: { glaze_id: string }[] | null }) => {
+        if (data) setSavedIds(new Set(data.map((r) => r.glaze_id)));
+      });
+  }, [session?.user.id]);
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -595,19 +610,31 @@ export default function GlazesScreen() {
   }, [search, activeFilter, savedIds]);
 
   // ── Save / unsave ──────────────────────────────────────────────────────────
-  function handleToggleSave(id: string) {
+  async function handleToggleSave(id: string) {
     if (savedIds.has(id)) {
       setSavedIds((prev) => {
         const next = new Set(prev);
         next.delete(id);
         return next;
       });
+      if (session) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("saved_glazes") as any)
+          .delete()
+          .eq("user_id", session.user.id)
+          .eq("glaze_id", id);
+      }
     } else {
       if (savedIds.size >= FREE_SAVE_LIMIT) {
         setShowUpgrade(true);
         return;
       }
       setSavedIds((prev) => new Set(prev).add(id));
+      if (session) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from("saved_glazes") as any)
+          .insert({ user_id: session.user.id, glaze_id: id });
+      }
     }
   }
 
