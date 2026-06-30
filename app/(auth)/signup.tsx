@@ -14,7 +14,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { signUpWithEmail } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/colors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -54,19 +53,20 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       const data = await signUpWithEmail(email.trim(), password, name.trim());
-      const uid = data.user?.id;
-      if (uid) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: profile } = await (supabase.from("profiles") as any)
-          .select("name")
-          .eq("id", uid)
-          .single();
-        if (!profile?.name?.trim()) {
-          router.replace("/(auth)/onboarding");
-          return;
-        }
+
+      if (!data.session) {
+        // Supabase has email confirmation enabled — user must confirm before
+        // they get a session, so we can't proceed to onboarding yet
+        Alert.alert(
+          "Check your email",
+          `We sent a confirmation link to ${email.trim()}. Tap it to confirm your account, then sign in.`,
+          [{ text: "Got it", onPress: () => router.replace("/(auth)/login") }]
+        );
+        return;
       }
-      // Name already set — AuthGuard redirects to tabs automatically
+
+      // Session exists — new user always goes to onboarding
+      router.replace("/(auth)/onboarding");
     } catch (err) {
       Alert.alert("Sign up failed", errorMessage(err));
     } finally {

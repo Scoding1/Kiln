@@ -594,7 +594,7 @@ function ContinueRow({
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { setSession } = useSession();
+  const { session } = useSession();
   const [step, setStep] = useState(0);
 
   // Answers
@@ -618,7 +618,6 @@ export default function OnboardingScreen() {
   const isFinal = step === 4;
 
   async function handleOpenKiln() {
-    const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from("profiles") as any)
@@ -628,9 +627,6 @@ export default function OnboardingScreen() {
           goals: [...workTypes, ...goal],
         })
         .eq("id", session.user.id);
-      // Sync AuthContext before navigating so AuthGuard sees session !== null
-      // and doesn't bounce the user back to the welcome screen
-      setSession(session);
     }
     router.replace("/(tabs)");
   }
