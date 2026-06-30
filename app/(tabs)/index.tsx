@@ -15,14 +15,12 @@ import { Colors } from "@/constants/colors";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ProjectStage =
-  | "Planning"
+  | "Wedged"
   | "Thrown"
-  | "Trimming"
-  | "Drying"
-  | "Bisque firing"
-  | "Glazing"
-  | "Glaze firing"
-  | "Complete";
+  | "Trimmed"
+  | "Bisque"
+  | "Glazed"
+  | "Fired";
 
 interface Project {
   id: string;
@@ -37,15 +35,15 @@ interface Project {
 const RECENT_PROJECT: Project = {
   id: "1",
   name: "Terracotta Bowl Set",
-  stage: "Bisque firing",
+  stage: "Bisque",
   piecesCount: 3,
   updatedAt: "2 days ago",
 };
 
 const RECENT_PROJECTS: Project[] = [
-  { id: "1", name: "Terracotta Bowl Set", stage: "Bisque firing", piecesCount: 3, updatedAt: "2d ago" },
-  { id: "2", name: "Celadon Mug", stage: "Glazing", piecesCount: 1, updatedAt: "5d ago" },
-  { id: "3", name: "Stoneware Vase", stage: "Trimming", piecesCount: 1, updatedAt: "1w ago" },
+  { id: "1", name: "Terracotta Bowl Set", stage: "Bisque",  piecesCount: 3, updatedAt: "2d ago" },
+  { id: "2", name: "Celadon Mug",         stage: "Glazed",  piecesCount: 1, updatedAt: "5d ago" },
+  { id: "3", name: "Stoneware Vase",      stage: "Trimmed", piecesCount: 1, updatedAt: "1w ago" },
 ];
 
 const STATS = { projects: 4, pieces: 12, glazes: 3 };
@@ -81,14 +79,12 @@ function getDailyTip(): string {
 }
 
 const STAGE_COLORS: Record<ProjectStage, { bg: string; text: string }> = {
-  Planning:      { bg: Colors.infoLight,    text: Colors.info },
-  Thrown:        { bg: Colors.clay[50],     text: Colors.clay[500] },
-  Trimming:      { bg: Colors.warningLight, text: Colors.warning },
-  Drying:        { bg: Colors.sand[100],    text: Colors.earth[400] },
-  "Bisque firing": { bg: Colors.warningLight, text: Colors.warning },
-  Glazing:       { bg: Colors.clay[100],    text: Colors.clay[600] },
-  "Glaze firing":  { bg: Colors.clay[50],   text: Colors.clay[500] },
-  Complete:      { bg: Colors.successLight, text: Colors.success },
+  Wedged:  { bg: Colors.infoLight,    text: Colors.info },
+  Thrown:  { bg: Colors.clay[50],     text: Colors.clay[500] },
+  Trimmed: { bg: Colors.warningLight, text: Colors.warning },
+  Bisque:  { bg: Colors.sand[100],    text: Colors.earth[400] },
+  Glazed:  { bg: Colors.clay[100],    text: Colors.clay[600] },
+  Fired:   { bg: Colors.successLight, text: Colors.success },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

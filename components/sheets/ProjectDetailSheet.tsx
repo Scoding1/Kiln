@@ -32,14 +32,12 @@ const DEFAULT_GLAZE_OPTIONS = [
 // ─── Stage track ──────────────────────────────────────────────────────────────
 
 const STAGE_COLORS: Record<ProjectStage, { dot: string }> = {
-  Planning:        { dot: Colors.info },
-  Thrown:          { dot: Colors.clay[400] },
-  Trimming:        { dot: Colors.warning },
-  Drying:          { dot: Colors.earth[300] },
-  "Bisque firing": { dot: Colors.warning },
-  Glazing:         { dot: Colors.clay[500] },
-  "Glaze firing":  { dot: Colors.clay[600] },
-  Complete:        { dot: Colors.success },
+  Wedged:  { dot: Colors.info },
+  Thrown:  { dot: Colors.clay[400] },
+  Trimmed: { dot: Colors.warning },
+  Bisque:  { dot: Colors.earth[300] },
+  Glazed:  { dot: Colors.clay[500] },
+  Fired:   { dot: Colors.success },
 };
 
 function StageTrack({
@@ -411,7 +409,7 @@ export function ProjectDetailSheet({
           {/* ── Glaze selector ── */}
           <View className="px-5 mb-5">
             {/* Glazing-stage prompt */}
-            {project.stage === "Glazing" && !selectedGlaze && (
+            {project.stage === "Bisque" && !selectedGlaze && (
               <View
                 style={{
                   backgroundColor: Colors.clay[50],
@@ -597,7 +595,7 @@ export function ProjectDetailSheet({
             </View>
           )}
 
-          {project.stage === "Complete" && (
+          {project.stage === "Fired" && (
             <View className="px-5">
               <View
                 className="rounded-2xl py-4 flex-row items-center justify-center gap-2"

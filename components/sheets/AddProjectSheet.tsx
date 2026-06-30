@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,13 @@ import {
   Platform,
   KeyboardAvoidingView,
   Pressable,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/colors";
 import type { Project, ProjectStage } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -44,24 +46,221 @@ const EMOJI_OPTIONS = [
   "🍜", "🍲", "🧊", "🎋",
 ];
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Clay Selector ────────────────────────────────────────────────────────────
+
+function ClaySelector({
+  clayBodies,
+  selected,
+  onSelect,
+  onAdd,
+}: {
+  clayBodies: string[];
+  selected: string;
+  onSelect: (v: string) => void;
+  onAdd: (v: string) => void;
+}) {
+  const [query, setQuery] = useState(selected);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) setQuery(selected);
+  }, [selected, open]);
+
+  const filtered = clayBodies.filter((c) =>
+    query.trim()
+      ? c.toLowerCase().includes(query.trim().toLowerCase())
+      : true
+  );
+  const exactMatch = clayBodies.some(
+    (c) => c.toLowerCase() === query.trim().toLowerCase()
+  );
+  const canAddNew = query.trim().length > 0 && !exactMatch;
+  const isSelected = !!selected && !open;
+
+  function handleFocus() {
+    setOpen(true);
+    setQuery("");
+  }
+
+  function handleSelect(clay: string) {
+    onSelect(clay);
+    setQuery(clay);
+    setOpen(false);
+  }
+
+  function handleAddNew() {
+    const t = query.trim();
+    if (!t) return;
+    onAdd(t);
+    setQuery(t);
+    setOpen(false);
+  }
+
+  function handleBlur() {
+    setTimeout(() => {
+      setOpen(false);
+      setQuery(selected);
+    }, 150);
+  }
+
+  return (
+    <View>
+      {/* Search / selected input */}
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          backgroundColor: Colors.surface,
+          borderWidth: 1,
+          borderColor: open
+            ? Colors.clay[300]
+            : selected
+            ? Colors.primary
+            : Colors.border,
+          borderRadius: 12,
+          paddingHorizontal: 12,
+          paddingVertical: Platform.OS === "ios" ? 10 : 6,
+          gap: 8,
+        }}
+      >
+        <Ionicons
+          name={isSelected ? "checkmark-circle" : "search-outline"}
+          size={16}
+          color={isSelected ? Colors.primary : Colors.textTertiary}
+        />
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder="Search or add clay body…"
+          placeholderTextColor={Colors.textTertiary}
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            if (canAddNew) handleAddNew();
+            else if (filtered.length === 1) handleSelect(filtered[0]);
+          }}
+          style={{
+            flex: 1,
+            fontSize: 14,
+            color: isSelected ? Colors.primaryDark : Colors.textPrimary,
+            fontWeight: isSelected ? "600" : "400",
+            ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
+          }}
+        />
+        {selected && !open && (
+          <TouchableOpacity
+            onPress={() => { onSelect(""); setQuery(""); }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="close-circle" size={18} color={Colors.clay[300]} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Dropdown */}
+      {open && (
+        <View
+          style={{
+            marginTop: 4,
+            backgroundColor: Colors.background,
+            borderWidth: 1,
+            borderColor: Colors.border,
+            borderRadius: 12,
+            overflow: "hidden",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 4,
+          }}
+        >
+          {filtered.length === 0 && !canAddNew && (
+            <View style={{ padding: 14 }}>
+              <Text style={{ fontSize: 14, color: Colors.textTertiary }}>
+                No matches
+              </Text>
+            </View>
+          )}
+
+          {filtered.map((clay, i) => {
+            const isActive = clay === selected;
+            const isLast = i === filtered.length - 1 && !canAddNew;
+            return (
+              <TouchableOpacity
+                key={clay}
+                onPress={() => handleSelect(clay)}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  borderBottomWidth: isLast ? 0 : 1,
+                  borderBottomColor: Colors.border,
+                  gap: 10,
+                  backgroundColor: isActive ? Colors.clay[50] : "transparent",
+                }}
+              >
+                {isActive ? (
+                  <Ionicons name="checkmark" size={14} color={Colors.primary} />
+                ) : (
+                  <View style={{ width: 14 }} />
+                )}
+                <Text
+                  style={{
+                    fontSize: 14,
+                    color: isActive ? Colors.primaryDark : Colors.textPrimary,
+                    fontWeight: isActive ? "600" : "400",
+                  }}
+                >
+                  {clay}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          {canAddNew && (
+            <TouchableOpacity
+              onPress={handleAddNew}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderTopWidth: filtered.length > 0 ? 1 : 0,
+                borderTopColor: Colors.border,
+                gap: 8,
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+              <Text style={{ fontSize: 14, color: Colors.primary, fontWeight: "500" }}>
+                Add "{query.trim()}"
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   onAdd: (project: Project) => void;
+  userId: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
+export function AddProjectSheet({ visible, onClose, onAdd, userId }: Props) {
   const [name, setName] = useState("");
   const [selectedEmoji, setSelectedEmoji] = useState("🏺");
   const [customEmojiInput, setCustomEmojiInput] = useState("");
   const [clayBodies, setClayBodies] = useState(DEFAULT_CLAY_BODIES);
   const [selectedClay, setSelectedClay] = useState("");
-  const [showNewClay, setShowNewClay] = useState(false);
-  const [newClayText, setNewClayText] = useState("");
   const [glazeOptions, setGlazeOptions] = useState(DEFAULT_GLAZE_OPTIONS);
   const [selectedGlaze, setSelectedGlaze] = useState("");
   const [showNewGlaze, setShowNewGlaze] = useState(false);
@@ -74,13 +273,13 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
     setSelectedEmoji("🏺");
     setCustomEmojiInput("");
     setSelectedClay("");
-    setShowNewClay(false);
-    setNewClayText("");
     setSelectedGlaze("");
     setShowNewGlaze(false);
     setNewGlazeText("");
     setNotes("");
     setPhotoUri(null);
+    setClayBodies(DEFAULT_CLAY_BODIES);
+    setGlazeOptions(DEFAULT_GLAZE_OPTIONS);
   }
 
   function handleClose() {
@@ -100,18 +299,14 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
       aspect: [1, 1],
       quality: 0.8,
     });
-    if (!result.canceled) {
-      setPhotoUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setPhotoUri(result.assets[0].uri);
   }
 
-  function handleAddClay() {
-    const trimmed = newClayText.trim();
-    if (!trimmed) return;
-    setClayBodies((prev) => [...prev, trimmed]);
-    setSelectedClay(trimmed);
-    setNewClayText("");
-    setShowNewClay(false);
+  function handleAddClay(clay: string) {
+    if (!clayBodies.includes(clay)) {
+      setClayBodies((prev) => [...prev, clay]);
+    }
+    setSelectedClay(clay);
   }
 
   function handleAddGlaze() {
@@ -123,16 +318,40 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
     setShowNewGlaze(false);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) return;
+    const session = await supabase.auth.getSession();
+    const uid = session.data.session?.user.id;
+    if (!uid) {
+      Alert.alert("Not signed in", "Please sign in before saving a project.");
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from("projects") as any)
+      .insert({
+        user_id: uid,
+        name: name.trim(),
+        emoji: selectedEmoji,
+        stage: "Wedged" as ProjectStage,
+        clay_body: selectedClay,
+        glaze: selectedGlaze,
+        notes: notes.trim(),
+      })
+      .select()
+      .single();
+    if (error) {
+      Alert.alert("Save failed", error.message ?? "Unknown error");
+      console.log("insert project error", error);
+      return;
+    }
     const project: Project = {
-      id: String(Date.now()),
-      name: name.trim(),
-      emoji: selectedEmoji,
-      stage: "Planning" as ProjectStage,
-      clayBody: selectedClay,
-      glaze: selectedGlaze,
-      notes: notes.trim(),
+      id: data.id,
+      name: data.name,
+      emoji: data.emoji,
+      stage: data.stage as ProjectStage,
+      clayBody: data.clay_body,
+      glaze: data.glaze,
+      notes: data.notes,
       photoUris: photoUri ? [photoUri] : [],
       updatedAt: "just now",
     };
@@ -205,30 +424,37 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
           >
-            {/* ── Name + Emoji row ── */}
-            <View className="flex-row items-center gap-3 mb-5">
-              {/* Emoji picker trigger */}
-              <View>
-                <Text className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: Colors.textTertiary }}>
-                  Icon
-                </Text>
+            {/* ── Emoji picker ── */}
+            <View className="mb-5">
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-1.5"
+                style={{ color: Colors.textTertiary }}
+              >
+                Icon
+              </Text>
+              <View className="flex-row items-center gap-3">
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  style={{ maxWidth: 240 }}
+                  style={{ flex: 1 }}
                 >
                   <View className="flex-row gap-2">
                     {EMOJI_OPTIONS.map((e) => (
                       <TouchableOpacity
                         key={e}
-                        onPress={() => setSelectedEmoji(e)}
+                        onPress={() => { setSelectedEmoji(e); setCustomEmojiInput(""); }}
                         className="w-11 h-11 rounded-xl items-center justify-center"
                         style={{
                           backgroundColor:
-                            e === selectedEmoji ? Colors.clay[100] : Colors.surface,
-                          borderWidth: e === selectedEmoji ? 2 : 1,
+                            e === selectedEmoji && !customEmojiInput
+                              ? Colors.clay[100]
+                              : Colors.surface,
+                          borderWidth:
+                            e === selectedEmoji && !customEmojiInput ? 2 : 1,
                           borderColor:
-                            e === selectedEmoji ? Colors.primary : Colors.border,
+                            e === selectedEmoji && !customEmojiInput
+                              ? Colors.primary
+                              : Colors.border,
                         }}
                       >
                         <Text className="text-2xl">{e}</Text>
@@ -236,37 +462,41 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                     ))}
                   </View>
                 </ScrollView>
-              </View>
 
-              {/* Custom emoji input */}
-              <TextInput
-                value={customEmojiInput}
-                onChangeText={(v) => {
-                  setCustomEmojiInput(v);
-                  if (v.trim()) setSelectedEmoji(v.trim());
-                }}
-                placeholder="Or type any emoji…"
-                placeholderTextColor={Colors.textTertiary}
-                maxLength={4}
-                style={{
-                  marginTop: 10,
-                  backgroundColor: Colors.surface,
-                  borderWidth: 1,
-                  borderColor: customEmojiInput ? Colors.clay[300] : Colors.border,
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 10,
-                  fontSize: 20,
-                  color: Colors.textPrimary,
-                  textAlign: "center",
-                  ...(Platform.OS === "web" ? ({ outlineStyle: "none" } as any) : {}),
-                }}
-              />
+                {/* Custom emoji input */}
+                <TextInput
+                  value={customEmojiInput}
+                  onChangeText={(v) => {
+                    setCustomEmojiInput(v);
+                    if (v.trim()) setSelectedEmoji(v.trim());
+                  }}
+                  placeholder="✏️"
+                  placeholderTextColor={Colors.textTertiary}
+                  maxLength={4}
+                  style={{
+                    backgroundColor: Colors.surface,
+                    borderWidth: customEmojiInput ? 2 : 1,
+                    borderColor: customEmojiInput ? Colors.primary : Colors.border,
+                    borderRadius: 12,
+                    width: 48,
+                    height: 48,
+                    fontSize: 20,
+                    color: Colors.textPrimary,
+                    textAlign: "center",
+                    ...(Platform.OS === "web"
+                      ? ({ outlineStyle: "none" } as any)
+                      : {}),
+                  }}
+                />
+              </View>
             </View>
 
             {/* ── Project name ── */}
             <View className="mb-5">
-              <Text className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: Colors.textTertiary }}>
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-1.5"
+                style={{ color: Colors.textTertiary }}
+              >
                 Project Name
               </Text>
               <TextInput
@@ -284,13 +514,19 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                   paddingVertical: 12,
                   fontSize: 15,
                   color: Colors.textPrimary,
+                  ...(Platform.OS === "web"
+                    ? ({ outlineStyle: "none" } as any)
+                    : {}),
                 }}
               />
             </View>
 
             {/* ── Photo upload ── */}
             <View className="mb-5">
-              <Text className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: Colors.textTertiary }}>
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-1.5"
+                style={{ color: Colors.textTertiary }}
+              >
                 Photo
               </Text>
               <TouchableOpacity
@@ -312,10 +548,17 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                       borderStyle: "dashed",
                     }}
                   >
-                    <Ionicons name="camera-outline" size={24} color={Colors.textTertiary} />
+                    <Ionicons
+                      name="camera-outline"
+                      size={24}
+                      color={Colors.textTertiary}
+                    />
                   </View>
                 )}
-                <Text className="text-sm font-medium" style={{ color: Colors.primary }}>
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: Colors.primary }}
+                >
                   {photoUri ? "Change photo" : "Add a photo"}
                 </Text>
               </TouchableOpacity>
@@ -323,83 +566,35 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
 
             {/* ── Clay body ── */}
             <View className="mb-5">
-              <Text className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: Colors.textTertiary }}>
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-2"
+                style={{ color: Colors.textTertiary }}
+              >
                 Clay Body
               </Text>
-              <View className="flex-row flex-wrap gap-2">
-                {clayBodies.map((clay) => {
-                  const active = clay === selectedClay;
-                  return (
-                    <TouchableOpacity
-                      key={clay}
-                      onPress={() => setSelectedClay(active ? "" : clay)}
-                      className="px-3 py-1.5 rounded-full"
-                      style={{
-                        backgroundColor: active ? Colors.clay[100] : Colors.surface,
-                        borderWidth: active ? 1.5 : 1,
-                        borderColor: active ? Colors.primary : Colors.border,
-                      }}
-                    >
-                      <Text
-                        className="text-sm"
-                        style={{ color: active ? Colors.primaryDark : Colors.textSecondary }}
-                      >
-                        {clay}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-
-                {/* Add new clay */}
-                {showNewClay ? (
-                  <View className="flex-row items-center gap-2">
-                    <TextInput
-                      value={newClayText}
-                      onChangeText={setNewClayText}
-                      placeholder="Clay name"
-                      placeholderTextColor={Colors.textTertiary}
-                      autoFocus
-                      returnKeyType="done"
-                      onSubmitEditing={handleAddClay}
-                      style={{
-                        backgroundColor: Colors.surface,
-                        borderWidth: 1,
-                        borderColor: Colors.clay[300],
-                        borderRadius: 20,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        fontSize: 14,
-                        color: Colors.textPrimary,
-                        minWidth: 110,
-                      }}
-                    />
-                    <TouchableOpacity onPress={handleAddClay}>
-                      <Ionicons name="checkmark-circle" size={26} color={Colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setShowNewClay(false); setNewClayText(""); }}>
-                      <Ionicons name="close-circle" size={26} color={Colors.textTertiary} />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => setShowNewClay(true)}
-                    className="flex-row items-center gap-1 px-3 py-1.5 rounded-full"
-                    style={{ borderWidth: 1, borderColor: Colors.border, borderStyle: "dashed" }}
-                  >
-                    <Ionicons name="add" size={14} color={Colors.textTertiary} />
-                    <Text className="text-sm" style={{ color: Colors.textTertiary }}>
-                      Add new
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <ClaySelector
+                clayBodies={clayBodies}
+                selected={selectedClay}
+                onSelect={setSelectedClay}
+                onAdd={handleAddClay}
+              />
             </View>
 
             {/* ── Glaze ── */}
             <View className="mb-5">
-              <Text className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: Colors.textTertiary }}>
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-2"
+                style={{ color: Colors.textTertiary }}
+              >
                 Glaze{" "}
-                <Text style={{ color: Colors.smoke[400], fontWeight: "400", textTransform: "none", letterSpacing: 0 }}>
+                <Text
+                  style={{
+                    color: Colors.smoke[400],
+                    fontWeight: "400",
+                    textTransform: "none",
+                    letterSpacing: 0,
+                  }}
+                >
                   (optional)
                 </Text>
               </Text>
@@ -419,7 +614,9 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                     >
                       <Text
                         className="text-sm"
-                        style={{ color: active ? Colors.primaryDark : Colors.textSecondary }}
+                        style={{
+                          color: active ? Colors.primaryDark : Colors.textSecondary,
+                        }}
                       >
                         {g}
                       </Text>
@@ -427,7 +624,6 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                   );
                 })}
 
-                {/* Add different glaze */}
                 {showNewGlaze ? (
                   <View className="flex-row items-center gap-2">
                     <TextInput
@@ -451,17 +647,34 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
                       }}
                     />
                     <TouchableOpacity onPress={handleAddGlaze}>
-                      <Ionicons name="checkmark-circle" size={26} color={Colors.primary} />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={26}
+                        color={Colors.primary}
+                      />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => { setShowNewGlaze(false); setNewGlazeText(""); }}>
-                      <Ionicons name="close-circle" size={26} color={Colors.textTertiary} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowNewGlaze(false);
+                        setNewGlazeText("");
+                      }}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={26}
+                        color={Colors.textTertiary}
+                      />
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <TouchableOpacity
                     onPress={() => setShowNewGlaze(true)}
                     className="flex-row items-center gap-1 px-3 py-1.5 rounded-full"
-                    style={{ borderWidth: 1, borderColor: Colors.border, borderStyle: "dashed" }}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: Colors.border,
+                      borderStyle: "dashed",
+                    }}
                   >
                     <Ionicons name="add" size={14} color={Colors.textTertiary} />
                     <Text className="text-sm" style={{ color: Colors.textTertiary }}>
@@ -474,9 +687,19 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
 
             {/* ── Notes ── */}
             <View className="mb-6">
-              <Text className="text-xs font-semibold uppercase tracking-widest mb-1.5" style={{ color: Colors.textTertiary }}>
+              <Text
+                className="text-xs font-semibold uppercase tracking-widest mb-1.5"
+                style={{ color: Colors.textTertiary }}
+              >
                 Notes{" "}
-                <Text style={{ color: Colors.smoke[400], fontWeight: "400", textTransform: "none", letterSpacing: 0 }}>
+                <Text
+                  style={{
+                    color: Colors.smoke[400],
+                    fontWeight: "400",
+                    textTransform: "none",
+                    letterSpacing: 0,
+                  }}
+                >
                   (optional)
                 </Text>
               </Text>
@@ -513,7 +736,9 @@ export function AddProjectSheet({ visible, onClose, onAdd }: Props) {
             >
               <Text
                 className="text-base font-semibold"
-                style={{ color: canSave ? Colors.textInverse : Colors.clay[400] }}
+                style={{
+                  color: canSave ? Colors.textInverse : Colors.clay[400],
+                }}
               >
                 Save Project
               </Text>

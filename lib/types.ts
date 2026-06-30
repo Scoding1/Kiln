@@ -1,12 +1,10 @@
 export type ProjectStage =
-  | "Planning"
+  | "Wedged"
   | "Thrown"
-  | "Trimming"
-  | "Drying"
-  | "Bisque firing"
-  | "Glazing"
-  | "Glaze firing"
-  | "Complete";
+  | "Trimmed"
+  | "Bisque"
+  | "Glazed"
+  | "Fired";
 
 export interface Project {
   id: string;
@@ -21,14 +19,12 @@ export interface Project {
 }
 
 export const ALL_STAGES: ProjectStage[] = [
-  "Planning",
+  "Wedged",
   "Thrown",
-  "Trimming",
-  "Drying",
-  "Bisque firing",
-  "Glazing",
-  "Glaze firing",
-  "Complete",
+  "Trimmed",
+  "Bisque",
+  "Glazed",
+  "Fired",
 ];
 
 export function stageIndex(stage: ProjectStage): number {
