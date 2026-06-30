@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/AuthContext";
 import { Colors } from "@/constants/colors";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -891,6 +892,7 @@ function AccountSection({ onLogOut }: { onLogOut: () => void }) {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { signOut } = useSession();
 
   const [skills, setSkills]       = useState<Skill[]>(SEED_SKILLS);
   const [activeTab, setActiveTab] = useState<ProfileTab>("Skills");
@@ -910,8 +912,8 @@ export default function ProfileScreen() {
   }
 
   async function handleLogOut() {
-    await supabase.auth.signOut();
-    router.replace("/(auth)/welcome");
+    await signOut();
+    // AuthGuard in _layout.tsx detects session === null and redirects automatically
   }
 
   return (

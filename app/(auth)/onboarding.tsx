@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
+import { useSession } from "@/lib/AuthContext";
 import { Colors } from "@/constants/colors";
 
 // ─── Step data ────────────────────────────────────────────────────────────────
@@ -593,6 +594,7 @@ function ContinueRow({
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { setSession } = useSession();
   const [step, setStep] = useState(0);
 
   // Answers
@@ -619,16 +621,17 @@ export default function OnboardingScreen() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const profiles = supabase.from("profiles") as any;
-      await profiles
+      await (supabase.from("profiles") as any)
         .update({
           name: name.trim() || (session.user.user_metadata?.name as string) || "",
           experience_level: experience || null,
-          goals: [...workTypes, ...goal], // step 3 + step 4 selections
+          goals: [...workTypes, ...goal],
         })
         .eq("id", session.user.id);
+      // Sync AuthContext before navigating so AuthGuard sees session !== null
+      // and doesn't bounce the user back to the welcome screen
+      setSession(session);
     }
-
     router.replace("/(tabs)");
   }
 

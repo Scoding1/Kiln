@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { signUpWithEmail } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/colors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -52,8 +53,20 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      await signUpWithEmail(email.trim(), password, name.trim());
-      router.replace("/(auth)/onboarding");
+      const data = await signUpWithEmail(email.trim(), password, name.trim());
+      const uid = data.user?.id;
+      if (uid) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: profile } = await (supabase.from("profiles") as any)
+          .select("name")
+          .eq("id", uid)
+          .single();
+        if (!profile?.name?.trim()) {
+          router.replace("/(auth)/onboarding");
+          return;
+        }
+      }
+      // Name already set — AuthGuard redirects to tabs automatically
     } catch (err) {
       Alert.alert("Sign up failed", errorMessage(err));
     } finally {

@@ -180,7 +180,7 @@ export default function WelcomeScreen() {
 
         {/* Get started button */}
         <TouchableOpacity
-          onPress={() => router.push("/(auth)/onboarding")}
+          onPress={() => router.push("/(auth)/login")}
           activeOpacity={0.88}
           style={{
             backgroundColor: Colors.primary,

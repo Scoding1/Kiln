@@ -1,23 +1,32 @@
-import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Platform } from "react-native";
+import { useState, useEffect } from "react";
+import { View, Text, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Colors } from "@/constants/colors";
 import { getStockStatus } from "@/lib/types";
-import type { Material } from "@/lib/types";
+import type { Material, MaterialCategory, MaterialUnit } from "@/lib/types";
 import { MaterialDetailSheet } from "@/components/sheets/MaterialDetailSheet";
 import { AddMaterialSheet } from "@/components/sheets/AddMaterialSheet";
+import { supabase } from "@/lib/supabase";
+import { useAuthStore } from "@/store";
 
-// TODO: replace with Supabase query
-const SEED_MATERIALS: Material[] = [
-  { id: "1", name: "Stoneware B-Mix",     category: "Clay",  quantity: 3,   unit: "kg", maxQuantity: 25,   alertThreshold: 5   },
-  { id: "2", name: "Floating Blue Glaze", category: "Glaze", quantity: 750, unit: "g",  maxQuantity: 1000, alertThreshold: 150 },
-  { id: "3", name: "Celadon Leach",       category: "Glaze", quantity: 280, unit: "g",  maxQuantity: 1000, alertThreshold: 200 },
-  { id: "4", name: "Porcelain",           category: "Clay",  quantity: 2,   unit: "kg", maxQuantity: 10,   alertThreshold: 2   },
-  { id: "5", name: "Majolica White",      category: "Glaze", quantity: 600, unit: "g",  maxQuantity: 1000, alertThreshold: 200 },
-  { id: "6", name: "Kiln Wash",           category: "Other", quantity: 80,  unit: "g",  maxQuantity: 500,  alertThreshold: 100 },
-];
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToMaterial(row: any): Material {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category as MaterialCategory,
+    quantity: Number(row.quantity),
+    unit: row.unit as MaterialUnit,
+    maxQuantity: Number(row.max_quantity),
+    alertThreshold: Number(row.alert_threshold),
+  };
+}
+
+// ─── UI components ────────────────────────────────────────────────────────────
 
 const STOCK_META = {
   low:           { border: Colors.error,   bg: Colors.errorLight,   text: Colors.error,   label: "Low Stock"   },
@@ -118,18 +127,51 @@ function MaterialCard({ material, onPress }: { material: Material; onPress: () =
   );
 }
 
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
 export default function InventoryScreen() {
   const router = useRouter();
-  const [materials, setMaterials] = useState<Material[]>(SEED_MATERIALS);
+  const session = useAuthStore((s) => s.session);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [loading, setLoading] = useState(true);
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  function handleUpdateQuantity(id: string, qty: number) {
+  useEffect(() => {
+    if (!session) { setLoading(false); return; }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase.from("inventory") as any)
+      .select("*")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data, error }: { data: any[] | null; error: any }) => {
+        if (error) console.log("fetch inventory error", error);
+        setMaterials((data ?? []).map(rowToMaterial));
+        setLoading(false);
+      });
+  }, [session?.user.id]);
+
+  async function handleUpdateQuantity(id: string, qty: number) {
     setMaterials((p) => p.map((m) => (m.id === id ? { ...m, quantity: qty } : m)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("inventory") as any)
+      .update({ quantity: qty })
+      .eq("id", id);
+    if (error) console.log("update quantity error", error);
   }
-  function handleRestock(id: string) {
-    setMaterials((p) => p.map((m) => (m.id === id ? { ...m, quantity: m.maxQuantity } : m)));
+
+  async function handleRestock(id: string) {
+    const material = materials.find((m) => m.id === id);
+    if (!material) return;
+    const qty = material.maxQuantity;
+    setMaterials((p) => p.map((m) => (m.id === id ? { ...m, quantity: qty } : m)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase.from("inventory") as any)
+      .update({ quantity: qty })
+      .eq("id", id);
+    if (error) console.log("restock error", error);
   }
+
   function handleAddMaterial(material: Material) {
     setMaterials((p) => [material, ...p]);
   }
@@ -169,7 +211,7 @@ export default function InventoryScreen() {
             Inventory
           </Text>
           <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
-            {materials.length} material{materials.length !== 1 ? "s" : ""} tracked
+            {loading ? "Loading…" : `${materials.length} material${materials.length !== 1 ? "s" : ""} tracked`}
           </Text>
         </View>
         <TouchableOpacity
@@ -184,39 +226,45 @@ export default function InventoryScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: 18,
-          paddingBottom: Platform.OS === "ios" ? 40 : 28,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        <LowStockBanner count={lowCount} />
+      {loading ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 18,
+            paddingBottom: Platform.OS === "ios" ? 40 : 28,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <LowStockBanner count={lowCount} />
 
-        {materials.length > 0 ? (
-          materials.map((m) => (
-            <MaterialCard key={m.id} material={m} onPress={() => setDetailMaterial(m)} />
-          ))
-        ) : (
-          <View
-            style={{
-              alignItems: "center", paddingVertical: 60,
-              backgroundColor: Colors.surface, borderRadius: 16,
-              borderWidth: 1, borderColor: Colors.border,
-            }}
-          >
-            <Text style={{ fontSize: 32, marginBottom: 12 }}>📦</Text>
-            <Text style={{ fontFamily: "Georgia", fontSize: 18, color: Colors.textPrimary, marginBottom: 6 }}>
-              No materials yet
-            </Text>
-            <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: "center", paddingHorizontal: 24 }}>
-              Tap + to start tracking your clay, glazes and supplies.
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          {materials.length > 0 ? (
+            materials.map((m) => (
+              <MaterialCard key={m.id} material={m} onPress={() => setDetailMaterial(m)} />
+            ))
+          ) : (
+            <View
+              style={{
+                alignItems: "center", paddingVertical: 60,
+                backgroundColor: Colors.surface, borderRadius: 16,
+                borderWidth: 1, borderColor: Colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 32, marginBottom: 12 }}>📦</Text>
+              <Text style={{ fontFamily: "Georgia", fontSize: 18, color: Colors.textPrimary, marginBottom: 6 }}>
+                No materials yet
+              </Text>
+              <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: "center", paddingHorizontal: 24 }}>
+                Tap + to start tracking your clay, glazes and supplies.
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       <MaterialDetailSheet
         material={syncedDetail}

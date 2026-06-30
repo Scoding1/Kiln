@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { signInWithEmail, signInWithGoogle, signInWithApple } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 import { Colors } from "@/constants/colors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -97,8 +98,20 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await signInWithEmail(email.trim(), password);
-      // _layout.tsx will pick up the session change and redirect to /(tabs)
+      const data = await signInWithEmail(email.trim(), password);
+      const uid = data.user?.id;
+      if (uid) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: profile } = await (supabase.from("profiles") as any)
+          .select("name")
+          .eq("id", uid)
+          .single();
+        if (!profile?.name?.trim()) {
+          router.replace("/(auth)/onboarding");
+          return;
+        }
+      }
+      // Name exists — AuthGuard sees session and redirects to tabs automatically
     } catch (err) {
       Alert.alert("Sign in failed", errorMessage(err));
     } finally {

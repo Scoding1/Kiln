@@ -9,10 +9,12 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import type { Material, MaterialCategory, MaterialUnit } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 const CATEGORIES: MaterialCategory[] = ["Clay", "Glaze", "Other"];
 const UNITS: MaterialUnit[] = ["kg", "g", "L", "ml"];
@@ -51,19 +53,46 @@ export function AddMaterialSheet({ visible, onClose, onAdd }: Props) {
     onClose();
   }
 
-  function handleSave() {
+  async function handleSave() {
     const qty = parseFloat(quantity) || 0;
     const max = parseFloat(maxQuantity) || qty * 2 || 10;
     const thresh = parseFloat(threshold) || Math.round(max * 0.2);
 
+    const session = await supabase.auth.getSession();
+    const uid = session.data.session?.user.id;
+    if (!uid) {
+      Alert.alert("Not signed in", "Please sign in before adding materials.");
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.from("inventory") as any)
+      .insert({
+        user_id: uid,
+        name: name.trim(),
+        category,
+        quantity: qty,
+        unit,
+        max_quantity: max,
+        alert_threshold: thresh,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      Alert.alert("Save failed", error.message ?? "Unknown error");
+      console.log("insert material error", error);
+      return;
+    }
+
     const material: Material = {
-      id: String(Date.now()),
-      name: name.trim(),
-      category,
-      quantity: qty,
-      unit,
-      maxQuantity: max,
-      alertThreshold: thresh,
+      id: data.id,
+      name: data.name,
+      category: data.category,
+      quantity: Number(data.quantity),
+      unit: data.unit,
+      maxQuantity: Number(data.max_quantity),
+      alertThreshold: Number(data.alert_threshold),
     };
     onAdd(material);
     reset();
