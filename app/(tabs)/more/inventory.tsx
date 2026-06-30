@@ -9,7 +9,7 @@ import type { Material, MaterialCategory, MaterialUnit } from "@/lib/types";
 import { MaterialDetailSheet } from "@/components/sheets/MaterialDetailSheet";
 import { AddMaterialSheet } from "@/components/sheets/AddMaterialSheet";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store";
+import { useSession } from "@/lib/AuthContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -131,7 +131,7 @@ function MaterialCard({ material, onPress }: { material: Material; onPress: () =
 
 export default function InventoryScreen() {
   const router = useRouter();
-  const session = useAuthStore((s) => s.session);
+  const { session } = useSession();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailMaterial, setDetailMaterial] = useState<Material | null>(null);

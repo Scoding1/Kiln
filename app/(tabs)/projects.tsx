@@ -16,7 +16,7 @@ import type { Project, ProjectStage } from "@/lib/types";
 import { AddProjectSheet } from "@/components/sheets/AddProjectSheet";
 import { ProjectDetailSheet } from "@/components/sheets/ProjectDetailSheet";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store";
+import { useSession } from "@/lib/AuthContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -299,7 +299,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function ProjectsScreen() {
-  const session = useAuthStore((s) => s.session);
+  const { session } = useSession();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -332,7 +332,7 @@ export default function ProjectsScreen() {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from("projects") as any)
-      .update({ stage })
+      .update({ stage, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) console.log("update stage error", error);
   }
@@ -346,7 +346,7 @@ export default function ProjectsScreen() {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from("projects") as any)
-      .update({ notes })
+      .update({ notes, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) console.log("update notes error", error);
   }
@@ -360,7 +360,7 @@ export default function ProjectsScreen() {
     );
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (supabase.from("projects") as any)
-      .update({ glaze })
+      .update({ glaze, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) console.log("update glaze error", error);
   }

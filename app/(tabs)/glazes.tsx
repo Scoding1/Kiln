@@ -15,7 +15,7 @@ import { Colors } from "@/constants/colors";
 import type { Glaze, FoodSafe } from "@/lib/types";
 import { GlazeDetailSheet } from "@/components/sheets/GlazeDetailSheet";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store";
+import { useSession } from "@/lib/AuthContext";
 
 // ─── Free tier ────────────────────────────────────────────────────────────────
 
@@ -550,7 +550,7 @@ function EmptySaved() {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function GlazesScreen() {
-  const session = useAuthStore((s) => s.session);
+  const { session } = useSession();
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("All");

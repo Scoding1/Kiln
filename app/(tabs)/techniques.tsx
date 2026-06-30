@@ -13,7 +13,7 @@ import { Colors } from "@/constants/colors";
 import type { Technique } from "@/lib/types";
 import { TechniqueDetailSheet } from "@/components/sheets/TechniqueDetailSheet";
 import { supabase } from "@/lib/supabase";
-import { useAuthStore } from "@/store";
+import { useSession } from "@/lib/AuthContext";
 
 // ─── Technique data ───────────────────────────────────────────────────────────
 
@@ -607,7 +607,7 @@ function EmptySearch({ query }: { query: string }) {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function TechniquesScreen() {
-  const session = useAuthStore((s) => s.session);
+  const { session } = useSession();
   const [search, setSearch] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("All");
