@@ -52,20 +52,7 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      const data = await signUpWithEmail(email.trim(), password, name.trim());
-
-      if (!data.session) {
-        // Supabase has email confirmation enabled — user must confirm before
-        // they get a session, so we can't proceed to onboarding yet
-        Alert.alert(
-          "Check your email",
-          `We sent a confirmation link to ${email.trim()}. Tap it to confirm your account, then sign in.`,
-          [{ text: "Got it", onPress: () => router.replace("/(auth)/login") }]
-        );
-        return;
-      }
-
-      // Session exists — new user always goes to onboarding
+      await signUpWithEmail(email.trim(), password, name.trim());
       router.replace("/(auth)/onboarding");
     } catch (err) {
       Alert.alert("Sign up failed", errorMessage(err));

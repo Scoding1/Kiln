@@ -18,6 +18,19 @@ export async function signUpWithEmail(email: string, password: string, name?: st
     },
   });
   if (error) throw error;
+
+  // When "Confirm email" is ON in Supabase, signUp returns no session.
+  // Sign in immediately so the user can access the app straight away;
+  // we'll show a soft nudge to confirm later rather than blocking them.
+  if (!data.session && data.user) {
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (signInError) throw signInError;
+    return signInData;
+  }
+
   return data;
 }
 

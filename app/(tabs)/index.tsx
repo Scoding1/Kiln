@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   TouchableOpacity,
   Pressable,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, router, Link } from "expo-router";
 import { Colors } from "@/constants/colors";
+import { useSession } from "@/lib/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -421,12 +424,72 @@ function TipOfTheDay({ tip }: { tip: string }) {
   );
 }
 
+// ─── Email nudge banner ───────────────────────────────────────────────────────
+
+function EmailNudgeBanner({
+  email,
+  onDismiss,
+  onResend,
+}: {
+  email: string;
+  onDismiss: () => void;
+  onResend: () => void;
+}) {
+  return (
+    <View
+      className="flex-row items-start rounded-2xl p-4 mb-5 gap-3"
+      style={{
+        backgroundColor: Colors.warningLight,
+        borderWidth: 1,
+        borderColor: Colors.warning + "50",
+      }}
+    >
+      <View
+        className="w-8 h-8 rounded-full items-center justify-center flex-shrink-0 mt-0.5"
+        style={{ backgroundColor: Colors.warning + "25" }}
+      >
+        <Ionicons name="mail-outline" size={16} color={Colors.warning} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-sm font-semibold mb-0.5" style={{ color: Colors.textPrimary }}>
+          Please confirm your email
+        </Text>
+        <Text className="text-xs leading-relaxed" style={{ color: Colors.textSecondary }}>
+          We sent a link to {email}.{" "}
+          <Text style={{ color: Colors.primary, fontWeight: "600" }} onPress={onResend}>
+            Resend
+          </Text>
+        </Text>
+      </View>
+      <TouchableOpacity onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="close" size={16} color={Colors.textTertiary} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { session } = useSession();
   const { heading, sub } = useMemo(getGreeting, []);
   const tip = useMemo(getDailyTip, []);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
+
+  const emailConfirmed = !session || !!session.user.email_confirmed_at;
+  const showNudge = !emailConfirmed && !nudgeDismissed;
+
+  async function handleResendEmail() {
+    const email = session?.user.email;
+    if (!email) return;
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    if (error) {
+      Alert.alert("Couldn't resend", error.message);
+    } else {
+      Alert.alert("Email sent", "Check your inbox for the confirmation link.");
+    }
+  }
 
   return (
     <SafeAreaView
@@ -443,6 +506,15 @@ export default function HomeScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── Email nudge ── */}
+        {showNudge && (
+          <EmailNudgeBanner
+            email={session?.user.email ?? ""}
+            onDismiss={() => setNudgeDismissed(true)}
+            onResend={handleResendEmail}
+          />
+        )}
+
         {/* ── Greeting ── */}
         <View className="mb-6">
           <Text
